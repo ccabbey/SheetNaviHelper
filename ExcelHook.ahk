@@ -70,9 +70,6 @@ class ExcelHook {
         /** Excel COM对象引用 */
         this.Excel:= Object
 
-        /** 当前活动工作簿, 等同于 this.Excel.ActiveWorkbook */
-        this.Workbook:=Object
-
         /** 事件处理类对象引用 */
         this.EventHandler:= EventHandler(this)
 
@@ -80,17 +77,35 @@ class ExcelHook {
          * ExcelHook监听到的事件会转发给观察者进行后续处理 */
         this.Observer:=Object
 
-        /** 标记HookExcelApp()的定时任务是否已经存在 */
-        this.hookTimerFlag:=false
     }
 
+    /**
+     * 自动注册观察者并立即开始监听Excel事件。成功后会手动广播一次 WorkbookActivate事件。
+     * @param observer 拥有event处理方法的客户端观察者
+     */
     Auto(observer){
-        this.Observer:=observer
+        this.SetObserver(observer)
         this.HookExcelApp()
         this.ListenExcelEvents()
-        this.RelayEvent('WorkbookActivate',this.Excel.Activeworkbook)
+        ;判断excel进程是否是一个空壳，如果无法访问Sheets.Count说明没有活动工作簿
+        try{
+            test:=this.excel.sheets.count
+            this.RelayEvent('WorkbookActivate',this.Excel.Activeworkbook)
+        }
+        catch{
+            ; do nothing
+        }
+            
+        
     }
-    
+    /**
+     * 注册观察者并建立双向引用
+     * @param observer 拥有event处理方法的客户端观察者
+     */
+    SetObserver(observer){
+        this.Observer:=observer
+        observer.Hook:=this
+    }
     /** @method - HookExcelApp
      * @description  
      * 尝试绑定当前活动的Excel进程。  
@@ -124,9 +139,14 @@ class ExcelHook {
             ; 尝试绑定新的Excel进程
             this.HookExcelApp()
         }
-        else 
-            Debug A_ThisFunc, 'Excel进程存在...'
-            ; Do nothing
+        else{
+            static prompted:=false
+            if !prompted{
+                Debug A_ThisFunc, 'Excel进程存在...'
+                prompted:=true
+            }
+            ; Do nothing, just log
+        }
     }
 
     /** @method - ListenExcelEvents
@@ -166,9 +186,13 @@ class ExcelHook {
         }
     }
 
-    GetSheetList(){
+    /**
+     * 通过ExcelHook获取活动工作簿的工作表信息对象集合。参见 SheetInfo 类。  
+     * 如果仅需要获取工作表名称列表，使用GetSheetNameList()
+     */
+    GetSheetInfoList(){
         list:=[]
-        for sh, _ in this.Excel.ActiveWorkbook.WorkSheets
+        for sh in this.Excel.ActiveWorkbook.WorkSheets
             list.Push SheetInfo(sh)
         return list
     }

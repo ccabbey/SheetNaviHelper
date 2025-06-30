@@ -14,10 +14,7 @@ app.ShowGUI()
 
 /**@var {ExcelHook} hook */
 hook:=ExcelHook()
-hook.HookExcelApp()
-hook.Observer:=app
-app.SetExcelHook(hook)
-hook.ListenExcelEvents()
+hook.Auto(app)
 
 
 
@@ -60,23 +57,32 @@ class Program{
         this.ui.show('AutoSize')
     }
 
-    SetExcelHook(hook){
-        this.hook:=hook
-    }
-
     OnWorkbookActivate(wb){
         Debug A_ThisFunc, '收到转发事件 WorkbookActivate'
-        shlist:=this.hook.GetSheetList()
-        list:=[]
-        this.ui.controls.sheetListbox.delete
-        /**@var {SheetInfo} sh */
-        for _,sh in shlist
-            list.push sh.name
-        this.ui.controls.sheetListbox.add list
+        this.UpdateListbox()
     }
 
     OnSheetActivate(sh){
         Debug A_ThisFunc, '收到转发事件 SheetActivate'
+        this.UpdateListbox()
     }
 
+    UpdateListbox(){
+        shlist := this.hook.GetSheetInfoList()
+        list := []
+        activeid := ''
+        for sh in shlist {
+            list.Push(sh.DisplayName)
+            if sh.Active
+                activeid := A_Index
+        }
+        lb := this.ui.controls.sheetListbox
+        lb.Delete()
+        lb.Add(list)
+        lb.Value := activeid
+    }
+
+    FocusOn(sheet){
+        
+    }
 }
