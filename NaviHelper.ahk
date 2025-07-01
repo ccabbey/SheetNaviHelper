@@ -23,6 +23,7 @@ class Program{
     __New(){
         this.ui:=this.MakeGUI()
         this.hook:=object
+        this.SheetListCache:=[]
     }
     MakeGUI(){
         ui:=Gui('+Resize +AlwaysOnTop '),ui.Opt('+MinSize200x200')
@@ -33,16 +34,19 @@ class Program{
         ui.OnEvent('Size', GuiReSizer)
 
         ui.controls:={}
-        listbox:=ui.controls.sheetListbox:= ui.AddListBox('section w200 h200')
-        listbox.SetFont('S11','Arial')
-        ;listbox.OnEvent('DoubleClick',OnListboxDbClick)
-        listbox.Width:= -70
-        listbox.Height:= -5
+        sb:=ui.controls.SearchEdit:=ui.AddEdit('w200 r1','')
+        sb.SetFont('S11','Arial')
+        sb.Width:=-70
+        sb.OnEvent('Change',(*)=>this.OnSearchEditChange(sb.Text))
+        lb:=ui.controls.sheetListbox:= ui.AddListBox('section w200 h200')
+        lb.SetFont('S11','Arial')
+        lb.OnEvent('DoubleClick',(*)=>this.OnListboxDbClick())
+        lb.Width:= -70, lb.Height:= -5
 
-        vis :=ui.controls.visibleRadio:=ui.AddRadio('section ys', '可见')
-        hid :=ui.controls.hiddenRadio:=ui.AddRadio('', '隐藏')
-        vhid:=ui.controls.veryHiddenRadio:=ui.AddRadio('', '深度')
-        vis.X:=hid.X:=vhid.X:=-60
+        rb1:=ui.controls.visibleRadio:=ui.AddRadio('section ys', '可见')
+        rb2:=ui.controls.hiddenRadio:=ui.AddRadio('', '隐藏')
+        rb3:=ui.controls.veryHiddenRadio:=ui.AddRadio('', '深度')
+        rb1.X:=rb2.X:=rb3.X:=-60
 
         btn1:=ui.controls.assignButton:=ui.AddButton('xs','指定')
         btn2:=ui.controls.refreshButton:=ui.AddButton('xs y+1','刷新')
@@ -55,34 +59,63 @@ class Program{
 
     ShowGUI(){
         this.ui.show('AutoSize')
+        HotIfWinActive('ahk_class AutoHotkeyGUI')
+        Hotkey('Tab',(*)=>this.ui.controls.SearchEdit.Focus())
     }
 
     OnWorkbookActivate(wb){
         Debug A_ThisFunc, '收到转发事件 WorkbookActivate'
         this.UpdateListbox()
+        this.ui.Title:=wb.name
     }
 
     OnSheetActivate(sh){
         Debug A_ThisFunc, '收到转发事件 SheetActivate'
         this.UpdateListbox()
+        this.SheetListCache:=this.hook.GetSheetList('DisplayName')
+    }
+
+    OnWorkbookBeforeClose(wb){
+        Debug A_ThisFunc, '收到转发事件 WorkbookBeforeClose'
+        this.ui.controls.sheetListbox.delete()
     }
 
     UpdateListbox(){
-        shlist := this.hook.GetSheetInfoList()
-        list := []
-        activeid := ''
-        for sh in shlist {
-            list.Push(sh.DisplayName)
-            if sh.Active
-                activeid := A_Index
+        try{
+            shlist := this.hook.GetSheetInfoList()
+            list := []
+            activeid := ''
+            for sh in shlist {
+                list.Push(sh.DisplayName)
+                if sh.Active
+                    activeid := A_Index
+            }
+            lb := this.ui.controls.sheetListbox
+            lb.Delete()
+            lb.Add(list)
+            lb.Value := activeid
         }
-        lb := this.ui.controls.sheetListbox
-        lb.Delete()
-        lb.Add(list)
-        lb.Value := activeid
     }
 
-    FocusOn(sheet){
+    OnListboxDbClick(){
+        target:=this.ui.controls.sheetListbox.Text
+        this.hook.FocusOn(target)
+    }
+
+    OnSearchEditChange(keyword){
+        lb:=this.ui.controls.sheetListbox
+        if keyword=''{
+            lb.delete()
+            lb.add this.SheetListCache
+            return
+        }
         
+        ret:=[]
+        for e in this.SheetListCache
+            if InStr(e,keyword)
+                ret.push e
+        
+        lb.delete()
+        lb.add ret
     }
 }

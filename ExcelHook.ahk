@@ -86,6 +86,8 @@ class ExcelHook {
     Auto(observer){
         this.SetObserver(observer)
         this.HookExcelApp()
+        ; 设置定时任务监视Excel是否被用户关闭
+        SetTimer(ObjBindMethod(this,'ProcessDaemon'),5000) 
         this.ListenExcelEvents()
         ;判断excel进程是否是一个空壳，如果无法访问Sheets.Count说明没有活动工作簿
         try{
@@ -96,7 +98,6 @@ class ExcelHook {
             ; do nothing
         }
             
-        
     }
     /**
      * 注册观察者并建立双向引用
@@ -121,27 +122,35 @@ class ExcelHook {
             Sleep 250 
         }
         ; 当存在多个Excel进程时, ComObjActive会优先绑定更早创建的那个Excel。
-        ; 通过Excel.Workbooks.Count==0可以判断该进程是否是一个空壳。  
         this.Excel := ComObjActive('Excel.Application')
         Debug A_ThisFunc, '已绑定Excel COM对象' 
-        ; 设置定时任务监视Excel是否被用户关闭
-        SetTimer(ObjBindMethod(this,'ProcessDaemon'),10000) 
+        
     }
 
     /** @method - ProcessDaemon  
      * 监视Excel是否正在运行, 如果被用户手动关闭, 则释放Excel COM对象引用。
      */
     ProcessDaemon(){
+        static prompted:=false
         if !WinExist('ahk_exe excel.exe'){
             this.Excel:=''
             Debug A_ThisFunc, 'Excel已关闭, COM对象引用已释放'
+            prompted:=false
             SetTimer ,0 ; 取消调用者设置的定时任务
             ; 尝试绑定新的Excel进程
             this.HookExcelApp()
+            this.ListenExcelEvents()
+            ;判断excel进程是否是一个空壳，如果无法访问Sheets.Count说明没有活动工作簿
+            try{
+                test:=this.excel.sheets.count
+                this.RelayEvent('WorkbookActivate',this.Excel.Activeworkbook)
+            }
+            catch{
+                ; do nothing
+            }
         }
         else{
-            static prompted:=false
-            if !prompted{
+            if 1|| !prompted{
                 Debug A_ThisFunc, 'Excel进程存在...'
                 prompted:=true
             }
@@ -196,7 +205,29 @@ class ExcelHook {
             list.Push SheetInfo(sh)
         return list
     }
+
+    GetSheetList(Mode:='Raw'){
+        list:=[],ret:=[]
+        for sh in this.Excel.ActiveWorkbook.WorkSheets
+            list.Push SheetInfo(sh)
+        switch Mode,0{
+        case 'Raw':
+            ret:=list
+        case 'DisplayName':
+            for e in list
+                ret.push e.DisplayName
+        case 'Visible':
+            for e in list
+                e.visible?ret.push(e.DisplayName):''
+        }
+        return ret
+    }
+
+    FocusOn(SheetName){
+        this.excel.sheets(SheetName).activate
+    }
 }
+
 
 /** @description
  * 输出到控制台
