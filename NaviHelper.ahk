@@ -7,81 +7,81 @@
 
 ;global vars
 
-
 ; program entrance
-app:=Program()
+app := Program()
 app.ShowGUI()
 
-/**@var {ExcelHook} hook */
-hook:=ExcelHook()
+hook := ExcelHook()
+hook.AddEventsToListen(XL_SheetActivate, XL_WorkbookActivate)
 hook.Auto(app)
 
+class Program {
 
-
-class Program{
-
-    __New(){
-        this.ui:=this.MakeGUI()
-        this.hook:=object
-        this.SheetListCache:=[]
+    __New() {
+        this.ui := this.MakeGUI()
+        this.hook := object
+        this.SheetListCache := []
     }
-    MakeGUI(){
-        ui:=Gui('+Resize +AlwaysOnTop '),ui.Opt('+MinSize200x200')
-        
-        ui.MarginX:=ui.MarginY:=5
-        ui.Title:='NaviHelper'
+    MakeGUI() {
+        ui := Gui('+Resize +AlwaysOnTop '), ui.Opt('+MinSize200x200')
+
+        ui.MarginX := ui.MarginY := 5
+        ui.Title := 'NaviHelper'
         ;ui.SetFont('S11','Arial')
         ui.OnEvent('Size', GuiReSizer)
 
-        ui.controls:={}
-        sb:=ui.controls.SearchEdit:=ui.AddEdit('w200 r1','')
-        sb.SetFont('S11','Arial')
-        sb.Width:=-70
-        sb.OnEvent('Change',(*)=>this.OnSearchEditChange(sb.Text))
-        lb:=ui.controls.sheetListbox:= ui.AddListBox('section w200 h200')
-        lb.SetFont('S11','Arial')
-        lb.OnEvent('DoubleClick',(*)=>this.OnListboxDbClick())
-        lb.Width:= -70, lb.Height:= -5
+        ui.controls := {}
+        sb := ui.controls.SearchEdit := ui.AddEdit('w200 r1', '')
+        sb.SetFont('S11', 'Arial')
+        sb.Width := -70
+        sb.OnEvent('Change', (*) => this.OnSearchEditChange(sb.Text))
+        lb := ui.controls.sheetListbox := ui.AddListBox('section w200 h200')
+        lb.SetFont('S11', 'Arial')
+        lb.OnEvent('DoubleClick', (*) => this.OnListboxDbClick())
+        lb.Width := -70, lb.Height := -5
 
-        rb1:=ui.controls.visibleRadio:=ui.AddRadio('section ys', '可见')
-        rb2:=ui.controls.hiddenRadio:=ui.AddRadio('', '隐藏')
-        rb3:=ui.controls.veryHiddenRadio:=ui.AddRadio('', '深度')
-        rb1.X:=rb2.X:=rb3.X:=-60
+        rb1 := ui.controls.visibleRadio := ui.AddRadio('section ys', '可见')
+        rb2 := ui.controls.hiddenRadio := ui.AddRadio('', '隐藏')
+        rb3 := ui.controls.veryHiddenRadio := ui.AddRadio('', '深度')
+        rb1.X := rb2.X := rb3.X := -60
 
-        btn1:=ui.controls.assignButton:=ui.AddButton('xs','指定')
-        btn2:=ui.controls.refreshButton:=ui.AddButton('xs y+1','刷新')
-        btn2.OnEvent('Click',(*)=>Pause(-1))
-        btn1.X:=btn2.X:=-60
+        btn1 := ui.controls.assignButton := ui.AddButton('xs', '指定')
+        btn2 := ui.controls.refreshButton := ui.AddButton('xs y+1', '刷新')
+        btn2.OnEvent('Click', (*) => Pause(-1))
+        btn1.X := btn2.X := -60
 
-        ui.OnEvent('Close',(*)=>ExitApp())
+        ui.OnEvent('Close', (*) => ExitApp())
         return ui
     }
 
-    ShowGUI(){
+    ShowGUI() {
         this.ui.show('AutoSize')
         HotIfWinActive('ahk_class AutoHotkeyGUI')
-        Hotkey('Tab',(*)=>this.ui.controls.SearchEdit.Focus())
+        Hotkey('Tab', (*) => this.ui.controls.SearchEdit.Focus())
     }
 
-    OnWorkbookActivate(wb){
-        Debug A_ThisFunc, '收到转发事件 WorkbookActivate'
+    OnWorkbookActivate(wb) {
+        Debug A_ThisFunc, 'Event Received: WorkbookActivate'
         this.UpdateListbox()
-        this.ui.Title:=wb.name
+        this.ui.Title := wb.name
     }
 
-    OnSheetActivate(sh){
-        Debug A_ThisFunc, '收到转发事件 SheetActivate'
+    OnSheetActivate(sh) {
+        Debug A_ThisFunc, 'Event Received: SheetActivate'
         this.UpdateListbox()
-        this.SheetListCache:=this.hook.GetSheetList('DisplayName')
+        this.SheetListCache := this.hook.GetSheetList('DisplayName')
     }
 
-    OnWorkbookBeforeClose(wb){
-        Debug A_ThisFunc, '收到转发事件 WorkbookBeforeClose'
+    OnWorkbookBeforeClose(wb) {
+        Debug A_ThisFunc, 'Event Received: WorkbookBeforeClose'
         this.ui.controls.sheetListbox.delete()
     }
 
-    UpdateListbox(){
-        try{
+    OnHookReady(xl) {
+        Debug A_ThisFunc, 'Event Received: HookReady'
+    }
+    UpdateListbox() {
+        try {
             shlist := this.hook.GetSheetInfoList()
             list := []
             activeid := ''
@@ -97,24 +97,24 @@ class Program{
         }
     }
 
-    OnListboxDbClick(){
-        target:=this.ui.controls.sheetListbox.Text
-        this.hook.FocusOn(target)
+    OnListboxDbClick() {
+        target := this.ui.controls.sheetListbox.Text
+        this.hook.ActivateSheet(target)
     }
 
-    OnSearchEditChange(keyword){
-        lb:=this.ui.controls.sheetListbox
-        if keyword=''{
+    OnSearchEditChange(keyword) {
+        lb := this.ui.controls.sheetListbox
+        if keyword = '' {
             lb.delete()
             lb.add this.SheetListCache
             return
         }
-        
-        ret:=[]
+
+        ret := []
         for e in this.SheetListCache
-            if InStr(e,keyword)
+            if InStr(e, keyword)
                 ret.push e
-        
+
         lb.delete()
         lb.add ret
     }
